@@ -34,7 +34,7 @@ export default async function handler(req, res) {
       meta: {
         count: cleanData.length,
         api: "DB-MODS API v1",
-        developer: "YourName",
+        developer: "Apna Developer",
         timestamp: new Date().toISOString()
       },
       data: cleanData,
