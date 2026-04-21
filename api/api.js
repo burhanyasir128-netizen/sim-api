@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   if (!query || !/^[0-9]{11,13}$/.test(query)) {
     return res.status(400).json({
       status: "error",
-      message: "Invalid query",
+      message: "بیٹا کوڈ نہیں نکلے گا جا کر اپنا کام کرو",
       watermark: "DB-MODS API"
     });
   }
