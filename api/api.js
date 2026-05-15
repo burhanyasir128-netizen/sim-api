@@ -41,8 +41,8 @@ export default async function handler(req, res) {
 
       // 🔥 Watermark
       watermark: {
-        owner: "DB-MODS",
-        note: "Powered by DB-MODS API"
+        owner: "Yasir Tanveer",
+        note: "Powered by Yasir Tanveer"
       }
     });
 
