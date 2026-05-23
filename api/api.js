@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   // =========================
-  // ✅ INPUT SUPPORT
+  // ✅ INPUT
   // =========================
 
   const input =
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   try {
 
     // =========================
-    // 🚀 SECOND API ONLY
+    // 🚀 API CALL
     // =========================
 
     const response = await fetch(
@@ -45,7 +45,8 @@ export default async function handler(req, res) {
     // =========================
 
     if (
-      !data?.records ||
+      !data.success ||
+      !data.records ||
       !data.records.length
     ) {
 
@@ -57,29 +58,6 @@ export default async function handler(req, res) {
     }
 
     // =========================
-    // 🧹 CLEAN DATA
-    // =========================
-
-    const records = data.records.map(item => ({
-
-      phone:
-        item.mobile || null,
-
-      name:
-        item.name || null,
-
-      cnic:
-        item.cnic || null,
-
-      address:
-        item.address || null,
-
-      network:
-        item.network || null
-
-    }));
-
-    // =========================
     // ✅ FINAL RESPONSE
     // =========================
 
@@ -87,11 +65,25 @@ export default async function handler(req, res) {
 
       success: true,
 
-      total: records.length,
+      count: data.count,
+
+      records: data.records.map(item => ({
+
+        name: item.name || null,
+
+        mobile: item.mobile || null,
+
+        cnic: item.cnic || null,
+
+        address: item.address || null,
+
+        network: item.network || null
+
+      })),
 
       developer: "Yasir Tanveer",
 
-      data: records,
+      api: "SIM INFO API",
 
       timestamp: new Date().toISOString()
 
