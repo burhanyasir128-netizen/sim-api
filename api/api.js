@@ -7,19 +7,19 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   // =========================
-  // ✅ INPUT
+  // ✅ GET NUMBER
   // =========================
 
-  const input =
-    req.query.query ||
+  const number =
     req.query.search ||
+    req.query.query ||
     req.query.number;
 
   // =========================
   // ✅ VALIDATION
   // =========================
 
-  if (!input || !/^[0-9]{11,13}$/.test(input)) {
+  if (!number || !/^[0-9]{11,13}$/.test(number)) {
 
     return res.status(400).json({
       success: false,
@@ -31,23 +31,23 @@ export default async function handler(req, res) {
   try {
 
     // =========================
-    // 🚀 API CALL
+    // 🚀 API REQUEST
     // =========================
 
     const response = await fetch(
-      `https://sim-info-api.wasif-ali.workers.dev/?search=${input}`
+      `https://sim-info-api.wasif-ali.workers.dev/?search=${number}`
     );
 
     const data = await response.json();
 
     // =========================
-    // ❌ NO RECORD
+    // ❌ NO RECORD FOUND
     // =========================
 
     if (
       !data.success ||
       !data.records ||
-      !data.records.length
+      data.records.length === 0
     ) {
 
       return res.status(404).json({
@@ -58,6 +58,24 @@ export default async function handler(req, res) {
     }
 
     // =========================
+    // ✅ CLEAN RESPONSE
+    // =========================
+
+    const records = data.records.map(item => ({
+
+      name: item.name || null,
+
+      mobile: item.mobile || null,
+
+      cnic: item.cnic || null,
+
+      address: item.address || null,
+
+      network: item.network || null
+
+    }));
+
+    // =========================
     // ✅ FINAL RESPONSE
     // =========================
 
@@ -65,34 +83,22 @@ export default async function handler(req, res) {
 
       success: true,
 
-      count: data.count,
+      count: records.length,
 
-      records: data.records.map(item => ({
-
-        name: item.name || null,
-
-        mobile: item.mobile || null,
-
-        cnic: item.cnic || null,
-
-        address: item.address || null,
-
-        network: item.network || null
-
-      })),
+      records,
 
       developer: "Yasir Tanveer",
 
-      api: "SIM INFO API",
+      source: "SIM INFO API",
 
       timestamp: new Date().toISOString()
 
     });
 
-  } catch (err) {
+  } catch (error) {
 
     // =========================
-    // ❌ ERROR
+    // ❌ SERVER ERROR
     // =========================
 
     return res.status(500).json({
@@ -101,7 +107,7 @@ export default async function handler(req, res) {
 
       message: "Server Error",
 
-      error: err.message
+      error: error.message
 
     });
 
