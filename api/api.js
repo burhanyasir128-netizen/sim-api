@@ -1,68 +1,40 @@
 export default async function handler(req, res) {
 
-  // =========================
-  // ⚡ ULTRA FAST API
-  // =========================
-
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate");
-
-  // ✅ Support:
-  // ?query=
-  // ?search=
-  // ?number=
 
   const input =
     req.query.query ||
     req.query.search ||
     req.query.number;
 
-  // =========================
   // ✅ Validation
-  // =========================
-
   if (!input || !/^[0-9]{11,13}$/.test(input)) {
     return res.status(400).json({
-      status: false,
+      success: false,
       message: "Invalid Number"
     });
   }
 
   // =========================
-  // 🔥 FAST FETCH FUNCTION
+  // ⚡ FAST FETCH
   // =========================
 
   const fastFetch = async (url) => {
 
-    const controller = new AbortController();
-
-    // ⏱️ Timeout 5 sec
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, 5000);
-
     try {
 
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          "accept": "application/json"
-        }
-      });
+      const response = await fetch(url);
 
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        throw new Error("API Failed");
-      }
+      if (!response.ok) return null;
 
       return await response.json();
 
-    } catch (err) {
+    } catch {
 
       return null;
 
     }
+
   };
 
   try {
@@ -71,114 +43,103 @@ export default async function handler(req, res) {
     // 🚀 BOTH APIs SAME TIME
     // =========================
 
-    const api1 =
+    const [api1, api2] = await Promise.allSettled([
+
       fastFetch(
         `https://sim-api.fakcloud.tech/?q=${input}`
-      );
+      ),
 
-    const api2 =
       fastFetch(
         `https://sim-info-api.wasif-ali.workers.dev/?search=${input}`
-      );
+      )
 
-    // ✅ Wait both
-    const results = await Promise.allSettled([
-      api1,
-      api2
     ]);
-
-    // =========================
-    // 📦 FIND FIRST VALID DATA
-    // =========================
 
     let records = [];
 
-    for (const result of results) {
+    // =========================
+    // ✅ FIRST API FORMAT
+    // =========================
 
-      if (
-        result.status === "fulfilled" &&
-        result.value
-      ) {
+    if (
+      api1.status === "fulfilled" &&
+      api1.value?.data?.length
+    ) {
 
-        const data = result.value;
+      records = api1.value.data.map(item => ({
 
-        records =
-          data?.data?.records ||
-          data?.data ||
-          data?.records ||
-          [];
+        phone: item.phone || null,
+        name: item.name || null,
+        cnic: item.cnic || null,
+        address: item.address || null,
+        network: item.network || null
 
-        if (records.length) break;
-      }
+      }));
+
     }
 
     // =========================
-    // ❌ No Data
+    // ✅ SECOND API FORMAT
+    // =========================
+
+    else if (
+      api2.status === "fulfilled" &&
+      api2.value?.records?.length
+    ) {
+
+      records = api2.value.records.map(item => ({
+
+        phone: item.mobile || null,
+        name: item.name || null,
+        cnic: item.cnic || null,
+        address: item.address || null,
+        network: item.network || null
+
+      }));
+
+    }
+
+    // =========================
+    // ❌ NO DATA
     // =========================
 
     if (!records.length) {
+
       return res.status(404).json({
-        status: false,
+        success: false,
         message: "No Record Found"
       });
+
     }
 
     // =========================
-    // 🧹 CLEAN DATA
-    // =========================
-
-    const cleanData = records.map(item => ({
-
-      phone:
-        item.phone ||
-        item.mobile ||
-        null,
-
-      name:
-        item.full_name ||
-        item.name ||
-        null,
-
-      cnic:
-        item.cnic ||
-        item.cnic_number ||
-        null,
-
-      address:
-        item.address ||
-        item.location ||
-        null
-
-    }));
-
-    // =========================
-    // ✅ SUCCESS RESPONSE
+    // ✅ FINAL RESPONSE
     // =========================
 
     return res.status(200).json({
 
-      status: true,
+      success: true,
+
+      total: records.length,
 
       developer: "Yasir Tanveer",
 
-      total: cleanData.length,
+      data: records,
 
-      data: cleanData,
-
-      timestamp: Date.now()
+      timestamp: new Date().toISOString()
 
     });
 
   } catch (err) {
 
-    // =========================
-    // ❌ SERVER ERROR
-    // =========================
-
     return res.status(500).json({
-      status: false,
+
+      success: false,
+
       message: "Server Error",
+
       error: err.message
+
     });
 
   }
