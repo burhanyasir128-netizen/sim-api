@@ -16,16 +16,18 @@ export default async function handler(req, res) {
   }
 
   // =========================
-  // ⚡ FAST FETCH
+  // ⚡ FETCH FUNCTION
   // =========================
 
-  const fastFetch = async (url) => {
+  const fetchAPI = async (url) => {
 
     try {
 
       const response = await fetch(url);
 
-      if (!response.ok) return null;
+      if (!response.ok) {
+        return null;
+      }
 
       return await response.json();
 
@@ -39,34 +41,20 @@ export default async function handler(req, res) {
 
   try {
 
-    // =========================
-    // 🚀 BOTH APIs SAME TIME
-    // =========================
-
-    const [api1, api2] = await Promise.allSettled([
-
-      fastFetch(
-        `https://sim-api.fakcloud.tech/?q=${input}`
-      ),
-
-      fastFetch(
-        `https://sim-info-api.wasif-ali.workers.dev/?search=${input}`
-      )
-
-    ]);
-
     let records = [];
 
     // =========================
-    // ✅ FIRST API FORMAT
+    // 🔥 FIRST API CALL
     // =========================
 
-    if (
-      api1.status === "fulfilled" &&
-      api1.value?.data?.length
-    ) {
+    const api1 = await fetchAPI(
+      `https://sim-api.fakcloud.tech/?q=${input}`
+    );
 
-      records = api1.value.data.map(item => ({
+    // ✅ First API Data
+    if (api1?.data?.length) {
+
+      records = api1.data.map(item => ({
 
         phone: item.phone || null,
         name: item.name || null,
@@ -79,28 +67,34 @@ export default async function handler(req, res) {
     }
 
     // =========================
-    // ✅ SECOND API FORMAT
+    // 🔄 SECOND API AUTO FALLBACK
     // =========================
 
-    else if (
-      api2.status === "fulfilled" &&
-      api2.value?.records?.length
-    ) {
+    else {
 
-      records = api2.value.records.map(item => ({
+      const api2 = await fetchAPI(
+        `https://sim-info-api.wasif-ali.workers.dev/?search=${input}`
+      );
 
-        phone: item.mobile || null,
-        name: item.name || null,
-        cnic: item.cnic || null,
-        address: item.address || null,
-        network: item.network || null
+      // ✅ Second API Data
+      if (api2?.records?.length) {
 
-      }));
+        records = api2.records.map(item => ({
+
+          phone: item.mobile || null,
+          name: item.name || null,
+          cnic: item.cnic || null,
+          address: item.address || null,
+          network: item.network || null
+
+        }));
+
+      }
 
     }
 
     // =========================
-    // ❌ NO DATA
+    // ❌ NO RECORD
     // =========================
 
     if (!records.length) {
