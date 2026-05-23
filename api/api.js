@@ -3,14 +3,20 @@ export default async function handler(req, res) {
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
 
-  const { query } = req.query;
+  // ✅ Dono support karega
+  // ?query=03001234567
+  // ?search=03001234567
+
+  const input =
+    req.query.query ||
+    req.query.search;
 
   // ✅ Validation
-  if (!query || !/^[0-9]{11,13}$/.test(query)) {
+  if (!input || !/^[0-9]{11,13}$/.test(input)) {
     return res.status(400).json({
       status: "error",
-      message: "بیٹا کوڈ نہیں نکلے گا جا کر اپنا کام کرو",
-      watermark: "DB-MODS API"
+      message: "Invalid Number",
+      watermark: "Yasir Tanveer"
     });
   }
 
@@ -21,15 +27,18 @@ export default async function handler(req, res) {
     // =========================
 
     const api1 = fetch(
-      `https://sim-api.fakcloud.tech/?q=${query}`
+      `https://sim-api.fakcloud.tech/?q=${input}`
     ).then(res => res.json());
 
     const api2 = fetch(
-      `https://sim-info-api.wasif-ali.workers.dev/?search=${query}`
+      `https://sim-info-api.wasif-ali.workers.dev/?search=${input}`
     ).then(res => res.json());
 
-    // ✅ Jo pehle response de
-    const data = await Promise.race([api1, api2]);
+    // ✅ Jo API pehle response de
+    const data = await Promise.race([
+      api1,
+      api2
+    ]);
 
     // =========================
     // 📦 Extract Records
@@ -41,11 +50,11 @@ export default async function handler(req, res) {
       data?.records ||
       [];
 
-    // ❌ No Data
+    // ❌ No Record
     if (!records.length) {
       return res.status(404).json({
         status: "error",
-        message: "No record found",
+        message: "No Record Found",
         watermark: "Yasir Tanveer"
       });
     }
@@ -55,14 +64,28 @@ export default async function handler(req, res) {
     // =========================
 
     const cleanData = records.map(item => ({
-      phone: item.phone || item.mobile || null,
-      name: item.full_name || item.name || null,
-      cnic: item.cnic || item.cnic_number || null,
-      address: item.address || null
+      phone:
+        item.phone ||
+        item.mobile ||
+        null,
+
+      name:
+        item.full_name ||
+        item.name ||
+        null,
+
+      cnic:
+        item.cnic ||
+        item.cnic_number ||
+        null,
+
+      address:
+        item.address ||
+        null
     }));
 
     // =========================
-    // ✅ Final Response
+    // ✅ Response
     // =========================
 
     return res.status(200).json({
@@ -70,7 +93,7 @@ export default async function handler(req, res) {
 
       meta: {
         count: cleanData.length,
-        api: "DB-MODS API v3",
+        api: "DB-MODS API v4",
         developer: "Yasir Tanveer",
         timestamp: new Date().toISOString()
       },
@@ -88,7 +111,7 @@ export default async function handler(req, res) {
 
     return res.status(500).json({
       status: "error",
-      message: "Both APIs failed",
+      message: "Both APIs Failed",
       error: err.message,
       watermark: "Yasir Tanveer"
     });
