@@ -1,4 +1,5 @@
 export default async function handler(req, res) {
+
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
 
@@ -14,48 +15,34 @@ export default async function handler(req, res) {
   }
 
   try {
-    let records = [];
 
     // =========================
-    // 🔹 FIRST API
+    // 🔥 BOTH APIs SAME TIME
     // =========================
-    try {
-      const apiRes1 = await fetch(
-        `https://sim-api.fakcloud.tech/?q=${query}`
-      );
 
-      const data1 = await apiRes1.json();
+    const api1 = fetch(
+      `https://sim-api.fakcloud.tech/?q=${query}`
+    ).then(res => res.json());
 
-      records = data1?.data?.records || [];
+    const api2 = fetch(
+      `https://sim-info-api.wasif-ali.workers.dev/?search=${query}`
+    ).then(res => res.json());
 
-    } catch (err) {
-      console.log("First API Failed");
-    }
-
-    // =========================
-    // 🔹 SECOND API (Fallback)
-    // =========================
-    if (!records || records.length === 0) {
-
-      try {
-        const apiRes2 = await fetch(
-          `https://sim-info-api.wasif-ali.workers.dev/?search=${query}`
-        );
-
-        const data2 = await apiRes2.json();
-
-        // Adjust according to second API response
-        records = data2?.data || data2?.records || [];
-
-      } catch (err) {
-        console.log("Second API Failed");
-      }
-    }
+    // ✅ Jo pehle response de
+    const data = await Promise.race([api1, api2]);
 
     // =========================
-    // ❌ No Data Found
+    // 📦 Extract Records
     // =========================
-    if (!records || records.length === 0) {
+
+    const records =
+      data?.data?.records ||
+      data?.data ||
+      data?.records ||
+      [];
+
+    // ❌ No Data
+    if (!records.length) {
       return res.status(404).json({
         status: "error",
         message: "No record found",
@@ -66,6 +53,7 @@ export default async function handler(req, res) {
     // =========================
     // 🧹 Clean Data
     // =========================
+
     const cleanData = records.map(item => ({
       phone: item.phone || item.mobile || null,
       name: item.full_name || item.name || null,
@@ -76,30 +64,35 @@ export default async function handler(req, res) {
     // =========================
     // ✅ Final Response
     // =========================
+
     return res.status(200).json({
       status: "success",
+
       meta: {
         count: cleanData.length,
-        api: "DB-MODS API v2",
+        api: "DB-MODS API v3",
         developer: "Yasir Tanveer",
         timestamp: new Date().toISOString()
       },
+
       data: cleanData,
 
       watermark: {
         owner: "Yasir Tanveer",
         note: "Powered by Yasir Tanveer"
       }
+
     });
 
   } catch (err) {
 
     return res.status(500).json({
       status: "error",
-      message: "Server error",
+      message: "Both APIs failed",
       error: err.message,
       watermark: "Yasir Tanveer"
     });
 
   }
+
 }
