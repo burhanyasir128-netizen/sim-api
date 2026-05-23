@@ -1,14 +1,15 @@
 const cache = new Map();
 
 // =========================
-// ⚡ CACHE GET/SET
+// ⚡ CACHE SYSTEM
 // =========================
 
 function getCache(key) {
   const item = cache.get(key);
+
   if (!item) return null;
 
-  if (Date.now() > item.expire) {
+  if (Date.now() > item.expiry) {
     cache.delete(key);
     return null;
   }
@@ -19,7 +20,7 @@ function getCache(key) {
 function setCache(key, data, ttl = 60000) {
   cache.set(key, {
     data,
-    expire: Date.now() + ttl
+    expiry: Date.now() + ttl
   });
 }
 
@@ -45,10 +46,11 @@ export default async function handler(req, res) {
   }
 
   // =========================
-  // ⚡ CACHE HIT (0ms response)
+  // ⚡ 1. CACHE HIT (0–5ms)
   // =========================
 
   const cached = getCache(number);
+
   if (cached) {
     return res.status(200).json({
       success: true,
@@ -60,7 +62,7 @@ export default async function handler(req, res) {
   try {
 
     // =========================
-    // ⚡ FAST API CALL (4s max)
+    // ⚡ 2. FETCH API
     // =========================
 
     const controller = new AbortController();
@@ -69,10 +71,7 @@ export default async function handler(req, res) {
     const response = await fetch(
       `https://sim-info-api.wasif-ali.workers.dev/?search=${number}`,
       {
-        signal: controller.signal,
-        headers: {
-          "accept": "application/json"
-        }
+        signal: controller.signal
       }
     );
 
@@ -81,7 +80,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       return res.status(502).json({
         success: false,
-        message: "Upstream API Failed"
+        message: "API Error"
       });
     }
 
@@ -95,7 +94,7 @@ export default async function handler(req, res) {
     }
 
     // =========================
-    // ⚡ CLEAN DATA (FAST MAP)
+    // ⚡ 3. CLEAN DATA
     // =========================
 
     const result = data.records.map(item => ({
@@ -107,14 +106,19 @@ export default async function handler(req, res) {
     }));
 
     // =========================
-    // ⚡ STORE CACHE (FAST NEXT REQUESTS)
+    // ⚡ 4. STORE CACHE (1 min)
     // =========================
 
-    setCache(number, result, 60000); // 60 sec cache
+    setCache(number, result, 60000);
+
+    // =========================
+    // ⚡ RESPONSE
+    // =========================
 
     return res.status(200).json({
       success: true,
       source: "api",
+      cached: false,
       data: result
     });
 
