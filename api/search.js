@@ -25,20 +25,37 @@ function setCache(key, data, ttl = 60000) {
 }
 
 // =========================
-// 🚀 HANDLER
+// 🚀 MAIN HANDLER
 // =========================
 
 export default async function handler(req, res) {
 
+  // =========================
+  // 🔒 HEADERS
+  // =========================
+
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
+  res.setHeader("Cache-Control", "public, max-age=60");
+
+  // =========================
+  // 📥 INPUT
+  // =========================
 
   const number =
     req.query.query ||
     req.query.search ||
     req.query.number;
 
-  if (!number || !/^[0-9]{11,13}$/.test(number)) {
+  // =========================
+  // ❌ VALIDATION
+  // =========================
+
+  if (
+    !number ||
+    typeof number !== "string" ||
+    !/^[0-9]{11,13}$/.test(number)
+  ) {
     return res.status(400).json({
       success: false,
       message: "Invalid Number"
@@ -46,7 +63,7 @@ export default async function handler(req, res) {
   }
 
   // =========================
-  // ⚡ 1. CACHE HIT (0–5ms)
+  // ⚡ CACHE HIT (FASTEST - 1ms)
   // =========================
 
   const cached = getCache(number);
@@ -55,6 +72,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       source: "cache",
+      cached: true,
       data: cached
     });
   }
@@ -62,7 +80,7 @@ export default async function handler(req, res) {
   try {
 
     // =========================
-    // ⚡ 2. FETCH API
+    // ⚡ API FETCH (FAST + TIMEOUT)
     // =========================
 
     const controller = new AbortController();
@@ -71,7 +89,11 @@ export default async function handler(req, res) {
     const response = await fetch(
       `https://sim-info-api.wasif-ali.workers.dev/?search=${number}`,
       {
-        signal: controller.signal
+        method: "GET",
+        signal: controller.signal,
+        headers: {
+          "accept": "application/json"
+        }
       }
     );
 
@@ -80,11 +102,15 @@ export default async function handler(req, res) {
     if (!response.ok) {
       return res.status(502).json({
         success: false,
-        message: "API Error"
+        message: "Upstream API Failed"
       });
     }
 
     const data = await response.json();
+
+    // =========================
+    // ❌ NO DATA
+    // =========================
 
     if (!data.success || !data.records?.length) {
       return res.status(404).json({
@@ -94,7 +120,7 @@ export default async function handler(req, res) {
     }
 
     // =========================
-    // ⚡ 3. CLEAN DATA
+    // 🧹 CLEAN DATA
     // =========================
 
     const result = data.records.map(item => ({
@@ -106,13 +132,13 @@ export default async function handler(req, res) {
     }));
 
     // =========================
-    // ⚡ 4. STORE CACHE (1 min)
+    // ⚡ STORE CACHE (60s)
     // =========================
 
     setCache(number, result, 60000);
 
     // =========================
-    // ⚡ RESPONSE
+    // ✅ RESPONSE
     // =========================
 
     return res.status(200).json({
@@ -127,13 +153,14 @@ export default async function handler(req, res) {
     if (err.name === "AbortError") {
       return res.status(408).json({
         success: false,
-        message: "Timeout"
+        message: "Request Timeout"
       });
     }
 
     return res.status(500).json({
       success: false,
-      message: "Server Error"
+      message: "Server Error",
+      error: err.message
     });
 
   }
