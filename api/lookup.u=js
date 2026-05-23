@@ -1,38 +1,150 @@
 export default async function handler(req, res) {
+
+  // =========================
+  // ✅ CORS
+  // =========================
+
   res.setHeader("Access-Control-Allow-Origin", "*");
 
-  const { query } = req.query;
+  // =========================
+  // ✅ GET QUERY
+  // =========================
+
+  const query =
+    req.query.query ||
+    req.query.search ||
+    req.query.number;
+
+  // =========================
+  // ✅ VALIDATION
+  // =========================
 
   if (!query || !/^[0-9]{11,13}$/.test(query)) {
+
     return res.status(400).json({
       status: "error",
       message: "Invalid query"
     });
+
   }
 
   try {
-    const apiRes = await fetch(`https://sim-api.fakcloud.tech/?q=${query}`);
-    const data = await apiRes.json();
 
-    const records = data?.data?.records || [];
+    let records = [];
 
-    const cleanData = records.map(item => ({
-      phone: item.phone,
-      name: item.full_name,
-      cnic: item.cnic,
-      address: item.address
-    }));
+    // =========================
+    // 🚀 FIRST API
+    // =========================
+
+    try {
+
+      const apiRes1 = await fetch(
+        `https://sim-api.fakcloud.tech/?q=${query}`
+      );
+
+      const data1 = await apiRes1.json();
+
+      if (data1?.data?.records?.length) {
+
+        records = data1.data.records.map(item => ({
+
+          phone: item.phone || null,
+
+          name: item.full_name || null,
+
+          cnic: item.cnic || null,
+
+          address: item.address || null,
+
+          network: item.network || null
+
+        }));
+
+      }
+
+    } catch {}
+
+    // =========================
+    // 🔄 SECOND API FALLBACK
+    // =========================
+
+    if (!records.length) {
+
+      try {
+
+        const apiRes2 = await fetch(
+          `https://sim-info-api.wasif-ali.workers.dev/?search=${query}`
+        );
+
+        const data2 = await apiRes2.json();
+
+        if (data2?.records?.length) {
+
+          records = data2.records.map(item => ({
+
+            phone: item.mobile || null,
+
+            name: item.name || null,
+
+            cnic: item.cnic || null,
+
+            address: item.address || null,
+
+            network: item.network || null
+
+          }));
+
+        }
+
+      } catch {}
+
+    }
+
+    // =========================
+    // ❌ NO RECORD
+    // =========================
+
+    if (!records.length) {
+
+      return res.status(404).json({
+        status: "error",
+        message: "No record found"
+      });
+
+    }
+
+    // =========================
+    // ✅ FINAL RESPONSE
+    // =========================
 
     return res.status(200).json({
+
       status: "success",
-      count: cleanData.length,
-      data: cleanData
+
+      count: records.length,
+
+      data: records,
+
+      developer: "Yasir Tanveer",
+
+      timestamp: new Date().toISOString()
+
     });
 
   } catch (err) {
+
+    // =========================
+    // ❌ SERVER ERROR
+    // =========================
+
     return res.status(500).json({
+
       status: "error",
+
       message: "Server error"
+
     });
+
   }
-  }
+
+}
