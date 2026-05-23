@@ -30,81 +30,25 @@ export default async function handler(req, res) {
 
   try {
 
-    let records = [];
-
     // =========================
-    // 🚀 FIRST API
+    // 🚀 NEW API ONLY
     // =========================
 
-    try {
+    const apiRes = await fetch(
+      `https://sim-info-api.wasif-ali.workers.dev/?search=${query}`
+    );
 
-      const apiRes1 = await fetch(
-        `https://sim-api.fakcloud.tech/?q=${query}`
-      );
-
-      const data1 = await apiRes1.json();
-
-      if (data1?.data?.records?.length) {
-
-        records = data1.data.records.map(item => ({
-
-          phone: item.phone || null,
-
-          name: item.full_name || null,
-
-          cnic: item.cnic || null,
-
-          address: item.address || null,
-
-          network: item.network || null
-
-        }));
-
-      }
-
-    } catch {}
-
-    // =========================
-    // 🔄 SECOND API FALLBACK
-    // =========================
-
-    if (!records.length) {
-
-      try {
-
-        const apiRes2 = await fetch(
-          `https://sim-info-api.wasif-ali.workers.dev/?search=${query}`
-        );
-
-        const data2 = await apiRes2.json();
-
-        if (data2?.records?.length) {
-
-          records = data2.records.map(item => ({
-
-            phone: item.mobile || null,
-
-            name: item.name || null,
-
-            cnic: item.cnic || null,
-
-            address: item.address || null,
-
-            network: item.network || null
-
-          }));
-
-        }
-
-      } catch {}
-
-    }
+    const data = await apiRes.json();
 
     // =========================
     // ❌ NO RECORD
     // =========================
 
-    if (!records.length) {
+    if (
+      !data.success ||
+      !data.records ||
+      data.records.length === 0
+    ) {
 
       return res.status(404).json({
         status: "error",
@@ -114,6 +58,24 @@ export default async function handler(req, res) {
     }
 
     // =========================
+    // 🧹 CLEAN DATA
+    // =========================
+
+    const cleanData = data.records.map(item => ({
+
+      phone: item.mobile || null,
+
+      name: item.name || null,
+
+      cnic: item.cnic || null,
+
+      address: item.address || null,
+
+      network: item.network || null
+
+    }));
+
+    // =========================
     // ✅ FINAL RESPONSE
     // =========================
 
@@ -121,9 +83,9 @@ export default async function handler(req, res) {
 
       status: "success",
 
-      count: records.length,
+      count: cleanData.length,
 
-      data: records,
+      data: cleanData,
 
       developer: "Yasir Tanveer",
 
@@ -141,7 +103,9 @@ export default async function handler(req, res) {
 
       status: "error",
 
-      message: "Server error"
+      message: "Server error",
+
+      error: err.message
 
     });
 
