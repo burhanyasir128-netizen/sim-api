@@ -30,26 +30,14 @@ function setCache(key, data, ttl = 60000) {
 
 export default async function handler(req, res) {
 
-  // =========================
-  // 🔒 HEADERS
-  // =========================
-
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "public, max-age=60");
-
-  // =========================
-  // 📥 INPUT
-  // =========================
 
   const number =
     req.query.query ||
     req.query.search ||
     req.query.number;
-
-  // =========================
-  // ❌ VALIDATION
-  // =========================
 
   if (
     !number ||
@@ -63,7 +51,7 @@ export default async function handler(req, res) {
   }
 
   // =========================
-  // ⚡ CACHE HIT (FASTEST - 1ms)
+  // ⚡ CACHE HIT
   // =========================
 
   const cached = getCache(number);
@@ -73,14 +61,19 @@ export default async function handler(req, res) {
       success: true,
       source: "cache",
       cached: true,
-      data: cached
+      data: cached,
+
+      developer: {
+        name: "Yasir Tanveer",
+        note: "Ultra Fast Cache API"
+      }
     });
   }
 
   try {
 
     // =========================
-    // ⚡ API FETCH (FAST + TIMEOUT)
+    // ⚡ API CALL
     // =========================
 
     const controller = new AbortController();
@@ -89,11 +82,7 @@ export default async function handler(req, res) {
     const response = await fetch(
       `https://sim-info-api.wasif-ali.workers.dev/?search=${number}`,
       {
-        method: "GET",
-        signal: controller.signal,
-        headers: {
-          "accept": "application/json"
-        }
+        signal: controller.signal
       }
     );
 
@@ -107,10 +96,6 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-
-    // =========================
-    // ❌ NO DATA
-    // =========================
 
     if (!data.success || !data.records?.length) {
       return res.status(404).json({
@@ -132,7 +117,7 @@ export default async function handler(req, res) {
     }));
 
     // =========================
-    // ⚡ STORE CACHE (60s)
+    // ⚡ SAVE CACHE
     // =========================
 
     setCache(number, result, 60000);
@@ -145,7 +130,12 @@ export default async function handler(req, res) {
       success: true,
       source: "api",
       cached: false,
-      data: result
+      data: result,
+
+      developer: {
+        name: "Yasir Tanveer",
+        note: "Ultra Fast Cache API"
+      }
     });
 
   } catch (err) {
