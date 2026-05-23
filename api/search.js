@@ -1,19 +1,15 @@
 export default async function handler(req, res) {
 
   // =========================
-  // 🔒 SECURITY HEADERS
+  // ⚡ ULTRA FAST + SECURE API
   // =========================
 
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET");
+  res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
   res.setHeader("Content-Type", "application/json");
-  res.setHeader(
-    "Cache-Control",
-    "s-maxage=60, stale-while-revalidate"
-  );
 
   // =========================
-  // ✅ ONLY GET METHOD
+  // ✅ ONLY GET
   // =========================
 
   if (req.method !== "GET") {
@@ -26,10 +22,10 @@ export default async function handler(req, res) {
   }
 
   // =========================
-  // ✅ GET INPUT
+  // ✅ INPUT
   // =========================
 
-  const query =
+  const number =
     req.query.query ||
     req.query.search ||
     req.query.number;
@@ -39,9 +35,9 @@ export default async function handler(req, res) {
   // =========================
 
   if (
-    !query ||
-    typeof query !== "string" ||
-    !/^[0-9]{11,13}$/.test(query)
+    !number ||
+    typeof number !== "string" ||
+    !/^[0-9]{11,13}$/.test(number)
   ) {
 
     return res.status(400).json({
@@ -54,38 +50,30 @@ export default async function handler(req, res) {
   try {
 
     // =========================
-    // ⚡ FAST API FETCH
+    // ⚡ FAST FETCH
     // =========================
 
-    const controller = new AbortController();
-
-    // ⏱️ AUTO TIMEOUT
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, 5000);
-
     const response = await fetch(
-      `https://sim-info-api.wasif-ali.workers.dev/?search=${query}`,
+      `https://sim-info-api.wasif-ali.workers.dev/?search=${number}`,
       {
-        method: "GET",
-        signal: controller.signal,
         headers: {
-          "Accept": "application/json"
-        }
+          accept: "application/json"
+        },
+
+        // ⚡ KEEP CONNECTION FAST
+        cache: "no-store"
       }
     );
 
-    clearTimeout(timeout);
-
     // =========================
-    // ❌ API ERROR
+    // ❌ API FAILED
     // =========================
 
     if (!response.ok) {
 
       return res.status(502).json({
         success: false,
-        message: "API Error"
+        message: "API Failed"
       });
 
     }
@@ -98,7 +86,7 @@ export default async function handler(req, res) {
 
     if (
       !data.success ||
-      !Array.isArray(data.records) ||
+      !data.records ||
       data.records.length === 0
     ) {
 
@@ -110,65 +98,25 @@ export default async function handler(req, res) {
     }
 
     // =========================
-    // 🧹 CLEAN RESPONSE
-    // =========================
-
-    const cleanData = data.records.map(item => ({
-
-      name:
-        item.name || null,
-
-      mobile:
-        item.mobile || null,
-
-      cnic:
-        item.cnic || null,
-
-      address:
-        item.address || null,
-
-      network:
-        item.network || null
-
-    }));
-
-    // =========================
-    // ✅ FINAL RESPONSE
+    // ⚡ RETURN DIRECT DATA
     // =========================
 
     return res.status(200).json({
 
       success: true,
 
-      count: cleanData.length,
+      count: data.count,
 
-      data: cleanData,
+      records: data.records,
 
-      developer: "Yasir Tanveer",
-
-      source: "SIM INFO API",
-
-      timestamp: Date.now()
+      response_time: `${Date.now()}ms`
 
     });
 
   } catch (err) {
 
     // =========================
-    // ❌ TIMEOUT
-    // =========================
-
-    if (err.name === "AbortError") {
-
-      return res.status(408).json({
-        success: false,
-        message: "Request Timeout"
-      });
-
-    }
-
-    // =========================
-    // ❌ SERVER ERROR
+    // ❌ ERROR
     // =========================
 
     return res.status(500).json({
