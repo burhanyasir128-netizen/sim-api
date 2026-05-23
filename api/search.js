@@ -1,3 +1,32 @@
+const cache = new Map();
+
+// =========================
+// ⚡ CACHE GET/SET
+// =========================
+
+function getCache(key) {
+  const item = cache.get(key);
+  if (!item) return null;
+
+  if (Date.now() > item.expire) {
+    cache.delete(key);
+    return null;
+  }
+
+  return item.data;
+}
+
+function setCache(key, data, ttl = 60000) {
+  cache.set(key, {
+    data,
+    expire: Date.now() + ttl
+  });
+}
+
+// =========================
+// 🚀 HANDLER
+// =========================
+
 export default async function handler(req, res) {
 
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -15,11 +44,46 @@ export default async function handler(req, res) {
     });
   }
 
+  // =========================
+  // ⚡ CACHE HIT (0ms response)
+  // =========================
+
+  const cached = getCache(number);
+  if (cached) {
+    return res.status(200).json({
+      success: true,
+      source: "cache",
+      data: cached
+    });
+  }
+
   try {
 
+    // =========================
+    // ⚡ FAST API CALL (4s max)
+    // =========================
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+
     const response = await fetch(
-      `https://sim-info-api.wasif-ali.workers.dev/?search=${number}`
+      `https://sim-info-api.wasif-ali.workers.dev/?search=${number}`,
+      {
+        signal: controller.signal,
+        headers: {
+          "accept": "application/json"
+        }
+      }
     );
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return res.status(502).json({
+        success: false,
+        message: "Upstream API Failed"
+      });
+    }
 
     const data = await response.json();
 
@@ -30,6 +94,10 @@ export default async function handler(req, res) {
       });
     }
 
+    // =========================
+    // ⚡ CLEAN DATA (FAST MAP)
+    // =========================
+
     const result = data.records.map(item => ({
       name: item.name || null,
       mobile: item.mobile || null,
@@ -39,26 +107,25 @@ export default async function handler(req, res) {
     }));
 
     // =========================
-    // 🔐 BUILD PAYLOAD
+    // ⚡ STORE CACHE (FAST NEXT REQUESTS)
     // =========================
 
-    const payload = {
+    setCache(number, result, 60000); // 60 sec cache
+
+    return res.status(200).json({
       success: true,
-      source: "SIM API",
-      data: result,
-      developer: "Yasir Tanveer",
-      timestamp: Date.now()
-    };
-
-    // =========================
-    // 🔐 SIGNATURE (INTEGRITY CHECK)
-    // =========================
-
-    payload.signature = createSignature(payload);
-
-    return res.status(200).json(payload);
+      source: "api",
+      data: result
+    });
 
   } catch (err) {
+
+    if (err.name === "AbortError") {
+      return res.status(408).json({
+        success: false,
+        message: "Timeout"
+      });
+    }
 
     return res.status(500).json({
       success: false,
