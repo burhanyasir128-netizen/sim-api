@@ -1,69 +1,134 @@
 export default async function handler(req, res) {
 
-  // CORS
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // =========================
+  // ⚡ ULTRA FAST API
+  // =========================
 
-  // ✅ Dono support karega
-  // ?query=03001234567
-  // ?search=03001234567
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate");
+
+  // ✅ Support:
+  // ?query=
+  // ?search=
+  // ?number=
 
   const input =
     req.query.query ||
-    req.query.search;
+    req.query.search ||
+    req.query.number;
 
+  // =========================
   // ✅ Validation
+  // =========================
+
   if (!input || !/^[0-9]{11,13}$/.test(input)) {
     return res.status(400).json({
-      status: "error",
-      message: "Invalid Number",
-      watermark: "Yasir Tanveer"
+      status: false,
+      message: "Invalid Number"
     });
   }
+
+  // =========================
+  // 🔥 FAST FETCH FUNCTION
+  // =========================
+
+  const fastFetch = async (url) => {
+
+    const controller = new AbortController();
+
+    // ⏱️ Timeout 5 sec
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 5000);
+
+    try {
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          "accept": "application/json"
+        }
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        throw new Error("API Failed");
+      }
+
+      return await response.json();
+
+    } catch (err) {
+
+      return null;
+
+    }
+  };
 
   try {
 
     // =========================
-    // 🔥 BOTH APIs SAME TIME
+    // 🚀 BOTH APIs SAME TIME
     // =========================
 
-    const api1 = fetch(
-      `https://sim-api.fakcloud.tech/?q=${input}`
-    ).then(res => res.json());
+    const api1 =
+      fastFetch(
+        `https://sim-api.fakcloud.tech/?q=${input}`
+      );
 
-    const api2 = fetch(
-      `https://sim-info-api.wasif-ali.workers.dev/?search=${input}`
-    ).then(res => res.json());
+    const api2 =
+      fastFetch(
+        `https://sim-info-api.wasif-ali.workers.dev/?search=${input}`
+      );
 
-    // ✅ Jo API pehle response de
-    const data = await Promise.race([
+    // ✅ Wait both
+    const results = await Promise.allSettled([
       api1,
       api2
     ]);
 
     // =========================
-    // 📦 Extract Records
+    // 📦 FIND FIRST VALID DATA
     // =========================
 
-    const records =
-      data?.data?.records ||
-      data?.data ||
-      data?.records ||
-      [];
+    let records = [];
 
-    // ❌ No Record
+    for (const result of results) {
+
+      if (
+        result.status === "fulfilled" &&
+        result.value
+      ) {
+
+        const data = result.value;
+
+        records =
+          data?.data?.records ||
+          data?.data ||
+          data?.records ||
+          [];
+
+        if (records.length) break;
+      }
+    }
+
+    // =========================
+    // ❌ No Data
+    // =========================
+
     if (!records.length) {
       return res.status(404).json({
-        status: "error",
-        message: "No Record Found",
-        watermark: "Yasir Tanveer"
+        status: false,
+        message: "No Record Found"
       });
     }
 
     // =========================
-    // 🧹 Clean Data
+    // 🧹 CLEAN DATA
     // =========================
 
     const cleanData = records.map(item => ({
+
       phone:
         item.phone ||
         item.mobile ||
@@ -81,39 +146,39 @@ export default async function handler(req, res) {
 
       address:
         item.address ||
+        item.location ||
         null
+
     }));
 
     // =========================
-    // ✅ Response
+    // ✅ SUCCESS RESPONSE
     // =========================
 
     return res.status(200).json({
-      status: "success",
 
-      meta: {
-        count: cleanData.length,
-        api: "DB-MODS API v4",
-        developer: "Yasir Tanveer",
-        timestamp: new Date().toISOString()
-      },
+      status: true,
+
+      developer: "Yasir Tanveer",
+
+      total: cleanData.length,
 
       data: cleanData,
 
-      watermark: {
-        owner: "Yasir Tanveer",
-        note: "Powered by Yasir Tanveer"
-      }
+      timestamp: Date.now()
 
     });
 
   } catch (err) {
 
+    // =========================
+    // ❌ SERVER ERROR
+    // =========================
+
     return res.status(500).json({
-      status: "error",
-      message: "Both APIs Failed",
-      error: err.message,
-      watermark: "Yasir Tanveer"
+      status: false,
+      message: "Server Error",
+      error: err.message
     });
 
   }
