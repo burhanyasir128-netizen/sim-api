@@ -1,22 +1,41 @@
 export default async function handler(req, res) {
 
   // =========================
-  // ⚡ ULTRA FAST + SECURE API
+  // 🔒 SECURITY
   // =========================
 
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
   res.setHeader("Content-Type", "application/json");
 
   // =========================
-  // ✅ ONLY GET
+  // 🚫 BLOCK NON-GET METHODS
   // =========================
 
   if (req.method !== "GET") {
 
-    return res.status(405).json({
+    return res.status(403).json({
       success: false,
-      message: "Method Not Allowed"
+      message: "Access Denied"
+    });
+
+  }
+
+  // =========================
+  // 🚫 BLOCK DIRECT FILE ACCESS
+  // =========================
+
+  const userAgent = req.headers["user-agent"] || "";
+
+  if (
+    userAgent.includes("curl") ||
+    userAgent.includes("Postman") ||
+    userAgent.includes("python") ||
+    userAgent.includes("wget")
+  ) {
+
+    return res.status(403).json({
+      success: false,
+      message: "Code nikalne ki koshish mat karo 🙂"
     });
 
   }
@@ -36,7 +55,6 @@ export default async function handler(req, res) {
 
   if (
     !number ||
-    typeof number !== "string" ||
     !/^[0-9]{11,13}$/.test(number)
   ) {
 
@@ -50,33 +68,12 @@ export default async function handler(req, res) {
   try {
 
     // =========================
-    // ⚡ FAST FETCH
+    // 🚀 API REQUEST
     // =========================
 
     const response = await fetch(
-      `https://sim-info-api.wasif-ali.workers.dev/?search=${number}`,
-      {
-        headers: {
-          accept: "application/json"
-        },
-
-        // ⚡ KEEP CONNECTION FAST
-        cache: "no-store"
-      }
+      `https://sim-info-api.wasif-ali.workers.dev/?search=${number}`
     );
-
-    // =========================
-    // ❌ API FAILED
-    // =========================
-
-    if (!response.ok) {
-
-      return res.status(502).json({
-        success: false,
-        message: "API Failed"
-      });
-
-    }
 
     const data = await response.json();
 
@@ -87,7 +84,7 @@ export default async function handler(req, res) {
     if (
       !data.success ||
       !data.records ||
-      data.records.length === 0
+      !data.records.length
     ) {
 
       return res.status(404).json({
@@ -98,7 +95,7 @@ export default async function handler(req, res) {
     }
 
     // =========================
-    // ⚡ RETURN DIRECT DATA
+    // ✅ RESPONSE
     // =========================
 
     return res.status(200).json({
@@ -109,7 +106,9 @@ export default async function handler(req, res) {
 
       records: data.records,
 
-      response_time: `${Date.now()}ms`
+      developer: "Yasir Tanveer",
+
+      timestamp: new Date().toISOString()
 
     });
 
